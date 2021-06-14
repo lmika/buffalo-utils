@@ -1,0 +1,6 @@
+package models
+
+enum AccountStatus {
+    None(0) = "none";
+    Active(1) = "active";
+}
