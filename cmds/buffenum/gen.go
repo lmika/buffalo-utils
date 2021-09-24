@@ -7,58 +7,60 @@ import (
 )
 
 type codeGen struct {
-	enum *Enum
+	file *File
 
 	unknownStringValue string
 
 	typeName *jen.Statement
 }
 
-func newCodeGen(enum *Enum) *codeGen {
+func newCodeGen(file *File) *codeGen {
 	return &codeGen{
-		enum:               enum,
+		file:               file,
 		unknownStringValue: "unknown",
 	}
 }
 
 func (cg *codeGen) generate(w io.Writer) error {
-	cg.typeName = jen.Id(cg.enum.Name)
+	f := jen.NewFile(cg.file.Package)
 
-	f := jen.NewFile(cg.enum.Package)
-
-	f.Type().Add(cg.typeName).Int()
-	f.Const().DefsFunc(func(g *jen.Group) {
-		for i, e := range cg.enum.Items {
-			stmt := g.Id(cg.enumItemName(e))
-			if i == 0 {
-				stmt = stmt.Id(cg.enum.Name)
-			}
-			stmt.Op("=").Lit(e.IntValue)
-		}
-	})
-
-	// Array of valid values
-	f.Var().Id(cg.enum.Name + "Values").Op("=").Index().Id(cg.enum.Name).ValuesFunc(func(g *jen.Group) {
-		for _, e := range cg.enum.Items {
-			g.Id(cg.enumItemName(e))
-		}
-	})
-
-	cg.generateStringMethod(f)
-	cg.generateScanMethod(f)
-	cg.generateUnmarshalTextMethod(f)
-	cg.generateSelectValueMethod(f)
-	cg.generateSelectLabelMethod(f)
+	for _, e := range cg.file.Enums {
+		cg.generateEnum(f, e)
+	}
 
 	return f.Render(w)
 }
 
-func (cg *codeGen) generateStringMethod(f *jen.File) {
+func (cg *codeGen) generateEnum(f *jen.File, enum *Enum) {
+	cg.typeName = jen.Id(enum.Name)
+
+	f.Type().Add(cg.typeName).Int()
+	f.Const().DefsFunc(func(g *jen.Group) {
+		for _, e := range enum.Items {
+			g.Id(cg.enumItemName(e, enum)).Id(enum.Name).Op("=").Lit(e.IntValue)
+		}
+	})
+
+	// Array of valid values
+	f.Var().Id(enum.Name + "Values").Op("=").Index().Id(enum.Name).ValuesFunc(func(g *jen.Group) {
+		for _, e := range enum.Items {
+			g.Id(cg.enumItemName(e, enum))
+		}
+	})
+
+	cg.generateStringMethod(f, enum)
+	cg.generateScanMethod(f, enum)
+	cg.generateUnmarshalTextMethod(f, enum)
+	cg.generateSelectValueMethod(f, enum)
+	cg.generateSelectLabelMethod(f, enum)
+}
+
+func (cg *codeGen) generateStringMethod(f *jen.File, enum *Enum) {
 	receiver := jen.Id("e").Add(cg.typeName)
 	f.Func().Params(receiver).Id("String").Params().String().BlockFunc(func(g *jen.Group) {
 		g.Switch(jen.Id("e")).BlockFunc(func(g *jen.Group) {
-			for _, e := range cg.enum.Items {
-				g.Case(jen.Id(cg.enumItemName(e))).Block(
+			for _, e := range enum.Items {
+				g.Case(jen.Id(cg.enumItemName(e, enum))).Block(
 					jen.Return(jen.Lit(e.StringValue)),
 				)
 			}
@@ -67,7 +69,7 @@ func (cg *codeGen) generateStringMethod(f *jen.File) {
 	})
 }
 
-func (cg *codeGen) generateScanMethod(f *jen.File) {
+func (cg *codeGen) generateScanMethod(f *jen.File, enum *Enum) {
 	receiver := jen.Id("e").Op("*").Add(cg.typeName)
 
 	f.Func().Params(receiver).Id("Scan").Params(
@@ -77,16 +79,16 @@ func (cg *codeGen) generateScanMethod(f *jen.File) {
 
 		g.If(jen.Op("!").Id("isInt")).BlockFunc(func(g *jen.Group) {
 			g.Return(jen.Qual("errors", "New").Params(
-				jen.Lit(fmt.Sprintf("%v is not an int", cg.enum.Name))),
+				jen.Lit(fmt.Sprintf("%v is not an int", enum.Name))),
 			)
 		})
 
-		g.Op("*").Id("e").Op("=").Id(cg.enum.Name).Params(jen.Id("i"))
+		g.Op("*").Id("e").Op("=").Id(enum.Name).Params(jen.Id("i"))
 		g.Return(jen.Nil())
 	})
 }
 
-func (cg *codeGen) generateUnmarshalTextMethod(f *jen.File) {
+func (cg *codeGen) generateUnmarshalTextMethod(f *jen.File ,enum *Enum) {
 	receiver := jen.Id("e").Op("*").Add(cg.typeName)
 	textParam := jen.Id("text")
 
@@ -97,33 +99,42 @@ func (cg *codeGen) generateUnmarshalTextMethod(f *jen.File) {
 		textAsStr := jen.String().Params(jen.Id("text"))
 
 		g.Switch(textAsStr).BlockFunc(func(g *jen.Group) {
-			for _, e := range cg.enum.Items {
+			for _, e := range enum.Items {
 				g.Case(jen.Lit(e.StringValue)).BlockFunc(func(g *jen.Group) {
-					g.Op("*").Id("e").Op("=").Id(cg.enumItemName(e))
+					g.Op("*").Id("e").Op("=").Id(cg.enumItemName(e, enum))
 					g.Return(jen.Nil())
 				})
 			}
 		})
-		g.Return(jen.Qual("errors", "New").Params(
-			jen.Lit(fmt.Sprintf("invalid value for %v", cg.enum.Name))),
-		)
+
+		// Unrecognised case
+		if defaultItem, hasDefaultItem := enum.DefaultItem(); hasDefaultItem {
+			// Set it to the default item
+			g.Op("*").Id("e").Op("=").Id(cg.enumItemName(defaultItem, enum))
+			g.Return(jen.Nil())
+		} else {
+			// Return an error
+			g.Return(jen.Qual("errors", "New").Params(
+				jen.Lit(fmt.Sprintf("invalid value for %v", enum.Name))),
+			)
+		}
 	})
 }
 
-func (cg *codeGen) generateSelectValueMethod(f *jen.File) {
+func (cg *codeGen) generateSelectValueMethod(f *jen.File, enum *Enum) {
 	receiver := jen.Id("e").Add(cg.typeName)
 	f.Func().Params(receiver).Id("SelectValue").Params().Interface().BlockFunc(func(g *jen.Group) {
 		g.Return(jen.Id("e").Dot("String").Call())
 	})
 }
 
-func (cg *codeGen) generateSelectLabelMethod(f *jen.File) {
+func (cg *codeGen) generateSelectLabelMethod(f *jen.File, enum *Enum) {
 	receiver := jen.Id("e").Add(cg.typeName)
 	f.Func().Params(receiver).Id("SelectLabel").Params().String().BlockFunc(func(g *jen.Group) {
 		g.Switch(jen.Id("e")).BlockFunc(func(g *jen.Group) {
-			for _, e := range cg.enum.Items {
-				g.Case(jen.Id(cg.enumItemName(e))).Block(
-					jen.Return(jen.Lit(e.Name)),
+			for _, e := range enum.Items {
+				g.Case(jen.Id(cg.enumItemName(e, enum))).Block(
+					jen.Return(jen.Lit(cg.enumSelectLabel(e, enum))),
 				)
 			}
 		})
@@ -131,7 +142,14 @@ func (cg *codeGen) generateSelectLabelMethod(f *jen.File) {
 	})
 }
 
-func (cg *codeGen) enumItemName(enumItem EnumItem) string {
+func (cg *codeGen) enumItemName(enumItem EnumItem, enum *Enum) string {
 	// TODO: configure
-	return enumItem.Name + cg.enum.Name
+	return enumItem.Name + enum.Name
+}
+
+func (cg *codeGen) enumSelectLabel(enumItem EnumItem, enum *Enum) string {
+	if enumItem.SelectLabel != "" {
+		return enumItem.SelectLabel
+	}
+	return enumItem.Name
 }

@@ -2,10 +2,31 @@ package main
 
 import "github.com/alecthomas/participle"
 
+type fileAst struct {
+	Package string     `parser:"'package' @Ident"`
+	Enums   []*enumAst `parser:"@@*"`
+}
+
 type enumAst struct {
-	Package string        `parser:"'package' @Ident"`
-	Name    string        `parser:"'enum' @Ident"`
-	Items   []enumItemAst `parser:"'{' @@* '}'"`
+	Name  string        `parser:"'enum' @Ident"`
+	Items []enumItemAst `parser:"'{' @@* '}'"`
+}
+
+type enumItemAst struct {
+	Name      string `parser:"@Ident"`
+	IntValue  int    `parser:"'(' @Int ')'"`
+	StrValue  string `parser:"'=' @String"`
+	IsDefault bool   `parser:"@'default'?"`
+	SelectLabel string `parser:"('label' '=' @String)? ';'"`
+}
+
+func (e fileAst) toModel() *File {
+	items := make([]*Enum, 0)
+	for _, i := range e.Enums {
+		items = append(items, i.toModel())
+	}
+
+	return &File{Package: e.Package, Enums: items}
 }
 
 func (e enumAst) toModel() *Enum {
@@ -14,17 +35,11 @@ func (e enumAst) toModel() *Enum {
 		items = append(items, i.toModel())
 	}
 
-	return &Enum{Package: e.Package, Name: e.Name, Items: items}
+	return &Enum{Name: e.Name, Items: items}
 }
 
-type enumItemAst struct {
-	Name     string `parser:"@Ident"`
-	IntValue int    `parser:"'(' @Int ')'"`
-	StrValue string `parser:"'=' @String ';'"`
+func (e enumItemAst) toModel() EnumItem {
+	return EnumItem{Name: e.Name, IntValue: e.IntValue, StringValue: e.StrValue, IsDefault: e.IsDefault, SelectLabel: e.SelectLabel}
 }
 
-func (e enumItemAst) toModel() EnumItem{
-	return EnumItem{Name: e.Name, IntValue: e.IntValue, StringValue: e.StrValue}
-}
-
-var parser = participle.MustBuild(&enumAst{})
+var parser = participle.MustBuild(&fileAst{})

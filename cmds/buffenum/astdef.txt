@@ -1,6 +1,6 @@
 package models
 
 enum AccountStatus {
-    None(0) = "none";
+    None(0) = "none" default;
     Active(1) = "active";
 }

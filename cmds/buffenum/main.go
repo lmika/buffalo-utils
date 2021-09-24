@@ -23,7 +23,7 @@ func main() {
 		input = os.Stdin
 	}
 
-	ei, err := ParseEnum(input)
+	ei, err := ParseFile(input)
 	if err != nil {
 		log.Fatalln(err)
 	}
