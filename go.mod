@@ -1,8 +1,8 @@
-module github.com/lmika/buffalotools
+module github.com/lmika/gopkgs
 
-go 1.16
+go 1.17
 
 require (
-	github.com/alecthomas/participle v0.7.1 // indirect
-	github.com/dave/jennifer v1.4.1 // indirect
+	github.com/alecthomas/participle v0.7.1
+	github.com/dave/jennifer v1.4.1
 )
