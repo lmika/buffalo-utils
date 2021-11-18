@@ -11,24 +11,27 @@ import (
 	"sync"
 )
 
-type Config struct {
+// Render is a template renderer.  It uses the Go HTML template package and designed to be used
+// as middleware for the standard http.Handler.
+type Render struct {
 	templateFS fs.FS
 
-	cacheMutex *sync.RWMutex
+	cacheMutex  *sync.RWMutex
 	templateSet *template.Template
 }
 
-func New(tmplFS fs.FS) *Config{
-	cfg := &Config{
+// New creates a new template renderer.  Templates are read from the provided FS.
+func New(tmplFS fs.FS) *Render {
+	cfg := &Render{
 		templateFS: tmplFS,
 
-		cacheMutex: new(sync.RWMutex),
+		cacheMutex:  new(sync.RWMutex),
 		templateSet: template.New("/"),
 	}
 
 	_ = fs.WalkDir(tmplFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if !strings.HasSuffix(path, ".html") {
-			return  nil
+			return nil
 		}
 
 		tmpl, err := cfg.parseTemplate(path)
@@ -46,21 +49,22 @@ func New(tmplFS fs.FS) *Config{
 	return cfg
 }
 
-func (tc *Config) Use(next http.Handler) http.Handler {
+// Use enables use of the renderer with the passed in handler.
+func (tc *Render) Use(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rc := &renderContext{
-			config: tc,
+			render: tc,
 			values: make(map[string]interface{}),
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), renderContextKey, rc)))
 	})
 }
 
-func (tc *Config) template(name string) (*template.Template, error) {
+func (tc *Render) template(name string) (*template.Template, error) {
 	return tc.templateSet.Lookup(name), nil
 }
 
-func (tc *Config) parseTemplate(name string) (*template.Template, error) {
+func (tc *Render) parseTemplate(name string) (*template.Template, error) {
 	f, err := tc.templateFS.Open(name)
 	if err != nil {
 		return nil, err
@@ -80,16 +84,8 @@ func (tc *Config) parseTemplate(name string) (*template.Template, error) {
 	return tmpl, nil
 }
 
-func Set(r *http.Request, name string, value interface{}) {
-	rc, ok := r.Context().Value(renderContextKey).(*renderContext)
-	if !ok {
-		return
-	}
-	rc.values[name] = value
-}
-
 type renderContext struct {
-	config *Config
+	render *Render
 	values map[string]interface{}
 }
 

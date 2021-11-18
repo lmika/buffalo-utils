@@ -6,6 +6,8 @@ import (
 	"net/http"
 )
 
+// HTML renders the template with the given name and status code as the response.  This should
+// usually be the last call of the handler.
 func HTML(r *http.Request, w http.ResponseWriter, status int, templateName string) {
 	rc, ok := r.Context().Value(renderContextKey).(*renderContext)
 	if !ok {
@@ -13,7 +15,7 @@ func HTML(r *http.Request, w http.ResponseWriter, status int, templateName strin
 	}
 
 	// Render the content template
-	tmpl, err := rc.config.template(templateName)
+	tmpl, err := rc.render.template(templateName)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -26,14 +28,14 @@ func HTML(r *http.Request, w http.ResponseWriter, status int, templateName strin
 	}
 
 	// Render the master template
-	masterTmpl, err := rc.config.template("masters/frame.html")
+	masterTmpl, err := rc.render.template("masters/frame.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	masterBw := new(bytes.Buffer)
-	if err := masterTmpl.ExecuteTemplate(masterBw, "masters/frame.html", struct{
+	if err := masterTmpl.ExecuteTemplate(masterBw, "masters/frame.html", struct {
 		Content template.HTML
 	}{
 		Content: template.HTML(bw.String()),
