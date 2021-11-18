@@ -21,7 +21,6 @@ jobs:
       - name: Build
         run: |
           set -xue
-          go get .
           go build ./...
       - name: Test
         run: |
