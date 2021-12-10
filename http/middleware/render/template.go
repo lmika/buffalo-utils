@@ -15,6 +15,7 @@ import (
 // as middleware for the standard http.Handler.
 type Render struct {
 	templateFS fs.FS
+	master string
 
 	cacheMutex  *sync.RWMutex
 	templateSet *template.Template
@@ -24,6 +25,7 @@ type Render struct {
 func New(tmplFS fs.FS) *Render {
 	cfg := &Render{
 		templateFS: tmplFS,
+		master: "",
 
 		cacheMutex:  new(sync.RWMutex),
 		templateSet: template.New("/"),

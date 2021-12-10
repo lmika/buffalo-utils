@@ -28,23 +28,28 @@ func HTML(r *http.Request, w http.ResponseWriter, status int, templateName strin
 	}
 
 	// Render the master template
-	masterTmpl, err := rc.render.template("masters/frame.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	var targetBw *bytes.Buffer
+	if rc.render.master != "" {
+		masterTmpl, err := rc.render.template(rc.render.master)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	masterBw := new(bytes.Buffer)
-	if err := masterTmpl.ExecuteTemplate(masterBw, "masters/frame.html", struct {
-		Content template.HTML
-	}{
-		Content: template.HTML(bw.String()),
-	}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		targetBw = new(bytes.Buffer)
+		if err := masterTmpl.ExecuteTemplate(targetBw, rc.render.master, struct {
+			Content template.HTML
+		}{
+			Content: template.HTML(bw.String()),
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		targetBw = bw
 	}
 
 	w.Header().Set("Content-type", "text/html")
 	w.WriteHeader(status)
-	masterBw.WriteTo(w)
+	targetBw.WriteTo(w)
 }
