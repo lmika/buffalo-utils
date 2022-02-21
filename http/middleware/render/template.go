@@ -11,24 +11,28 @@ import (
 	"sync"
 )
 
-// Render is a template renderer.  It uses the Go HTML template package and designed to be used
-// as middleware for the standard http.Handler.
-type Render struct {
+type Config struct {
 	templateFS fs.FS
-	master string
 
 	cacheMutex  *sync.RWMutex
 	templateSet *template.Template
+	funcMaps    template.FuncMap
 }
 
-// New creates a new template renderer.  Templates are read from the provided FS.
-func New(tmplFS fs.FS) *Render {
-	cfg := &Render{
+func New(tmplFS fs.FS, opts ...ConfigOption) *Config {
+	cfg := &Config{
 		templateFS: tmplFS,
-		master: "",
 
 		cacheMutex:  new(sync.RWMutex),
 		templateSet: template.New("/"),
+	}
+
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	if cfg.funcMaps != nil {
+		cfg.templateSet = cfg.templateSet.Funcs(cfg.funcMaps)
 	}
 
 	_ = fs.WalkDir(tmplFS, ".", func(path string, d fs.DirEntry, err error) error {
@@ -51,22 +55,21 @@ func New(tmplFS fs.FS) *Render {
 	return cfg
 }
 
-// Use enables use of the renderer with the passed in handler.
-func (tc *Render) Use(next http.Handler) http.Handler {
+func (tc *Config) Use(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rc := &renderContext{
-			render: tc,
+			config: tc,
 			values: make(map[string]interface{}),
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), renderContextKey, rc)))
 	})
 }
 
-func (tc *Render) template(name string) (*template.Template, error) {
+func (tc *Config) template(name string) (*template.Template, error) {
 	return tc.templateSet.Lookup(name), nil
 }
 
-func (tc *Render) parseTemplate(name string) (*template.Template, error) {
+func (tc *Config) parseTemplate(name string) (*template.Template, error) {
 	f, err := tc.templateFS.Open(name)
 	if err != nil {
 		return nil, err
@@ -78,7 +81,12 @@ func (tc *Render) parseTemplate(name string) (*template.Template, error) {
 		return nil, err
 	}
 
-	tmpl, err := template.New(name).Parse(string(tmplBytes))
+	tmpl := template.New(name)
+	if tc.funcMaps != nil {
+		tmpl = tmpl.Funcs(tc.funcMaps)
+	}
+
+	tmpl, err = tmpl.Parse(string(tmplBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +94,16 @@ func (tc *Render) parseTemplate(name string) (*template.Template, error) {
 	return tmpl, nil
 }
 
+func Set(r *http.Request, name string, value interface{}) {
+	rc, ok := r.Context().Value(renderContextKey).(*renderContext)
+	if !ok {
+		return
+	}
+	rc.values[name] = value
+}
+
 type renderContext struct {
-	render *Render
+	config *Config
 	values map[string]interface{}
 }
 
