@@ -22,37 +22,50 @@ type Config struct {
 func New(tmplFS fs.FS, opts ...ConfigOption) *Config {
 	cfg := &Config{
 		templateFS: tmplFS,
-
-		cacheMutex:  new(sync.RWMutex),
-		templateSet: template.New("/"),
+		cacheMutex: new(sync.RWMutex),
 	}
 
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	if cfg.funcMaps != nil {
-		cfg.templateSet = cfg.templateSet.Funcs(cfg.funcMaps)
+	cfg.templateSet = cfg.buildTemplates()
+	return cfg
+}
+
+func (tc *Config) rebuildTemplates() {
+	newTemplates := tc.buildTemplates()
+
+	tc.cacheMutex.Lock()
+	defer tc.cacheMutex.Unlock()
+	tc.templateSet = newTemplates
+}
+
+func (tc *Config) buildTemplates() *template.Template {
+	mainTmpl := template.New("/")
+
+	if tc.funcMaps != nil {
+		mainTmpl = tc.templateSet.Funcs(tc.funcMaps)
 	}
 
-	_ = fs.WalkDir(tmplFS, ".", func(path string, d fs.DirEntry, err error) error {
+	_ = fs.WalkDir(tc.templateFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if !strings.HasSuffix(path, ".html") {
 			return nil
 		}
 
-		tmpl, err := cfg.parseTemplate(path)
+		tmpl, err := tc.parseTemplate(path)
 		if err != nil {
 			log.Printf("template %v: %v", path, err)
 			return nil
 		}
 
-		if _, err := cfg.templateSet.AddParseTree(path, tmpl.Tree); err != nil {
+		if _, err := mainTmpl.AddParseTree(path, tmpl.Tree); err != nil {
 			log.Printf("template %v: %v", path, err)
 		}
 
 		return nil
 	})
-	return cfg
+	return mainTmpl
 }
 
 func (tc *Config) Use(next http.Handler) http.Handler {
