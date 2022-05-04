@@ -47,7 +47,7 @@ func (tc *Config) buildTemplates() *template.Template {
 	mainTmpl := template.New("/")
 
 	if tc.funcMaps != nil {
-		mainTmpl = tc.templateSet.Funcs(tc.funcMaps)
+		mainTmpl = mainTmpl.Funcs(tc.funcMaps)
 	}
 
 	_ = fs.WalkDir(tc.templateFS, ".", func(path string, d fs.DirEntry, err error) error {
