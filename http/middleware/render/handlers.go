@@ -5,9 +5,9 @@ import (
 )
 
 func Set(r *http.Request, name string, value interface{}) {
-	rc, ok := r.Context().Value(renderContextKey).(*renderContext)
+	rc, ok := r.Context().Value(renderContextKey).(*Inv)
 	if !ok {
 		return
 	}
-	rc.values[name] = value
+	rc.Set(name, value)
 }

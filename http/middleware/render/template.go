@@ -52,12 +52,16 @@ func New(tmplFS fs.FS) *Render {
 // Use enables use of the renderer with the passed in handler.
 func (tc *Render) Use(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rc := &renderContext{
-			render: tc,
-			values: make(map[string]interface{}),
-		}
+		rc := tc.NewInv()
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), renderContextKey, rc)))
 	})
+}
+
+func (tc *Render) NewInv() *Inv {
+	return &Inv{
+		render: tc,
+		values: make(map[string]interface{}),
+	}
 }
 
 func (tc *Render) template(name string) (*template.Template, error) {
@@ -82,11 +86,6 @@ func (tc *Render) parseTemplate(name string) (*template.Template, error) {
 	}
 
 	return tmpl, nil
-}
-
-type renderContext struct {
-	render *Render
-	values map[string]interface{}
 }
 
 type renderContextKeyType struct{}
