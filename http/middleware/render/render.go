@@ -39,3 +39,12 @@ func HTML(r *http.Request, w http.ResponseWriter, status int, templateName strin
 
 	rc.HTML(r, w, status, templateName)
 }
+
+func JSON(r *http.Request, w http.ResponseWriter, status int, data any) {
+	rc, ok := r.Context().Value(renderContextKey).(*Inv)
+	if !ok {
+		return
+	}
+
+	rc.JSON(r, w, status, data)
+}

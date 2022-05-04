@@ -10,6 +10,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestJSON(t *testing.T) {
+	t.Run("should render output as json", func(t *testing.T) {
+		rw := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "https://www.example.com/", nil)
+
+		rnd := render.New(fstest.MapFS{
+			"index.html": &fstest.MapFile{
+				Data: []byte(`Template: {{.alpha}} - {{.bravo}}`),
+			},
+		})
+
+		inv := rnd.NewInv()
+		inv.JSON(r, rw, http.StatusOK, struct {
+			Alpha string `json:"alpha"`
+			Bravo string `json:"bravo"`
+		}{Alpha: "Hello", Bravo: "World"})
+
+		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
+		assert.Equal(t, "application/json; charset=utf-8", rw.Header().Get("Content-type"))
+		assert.JSONEq(t, `{"alpha":"Hello","bravo":"World"}`, rw.Body.String())
+	})
+}
+
 func TestInv_UseFrame(t *testing.T) {
 	t.Run("should add frame to the list of frames which will be used", func(t *testing.T) {
 		rw := httptest.NewRecorder()

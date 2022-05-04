@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"encoding/json"
 	"html/template"
 	"net/http"
 )
@@ -49,6 +50,7 @@ func (inv *Inv) HTML(r *http.Request, w http.ResponseWriter, status int, templat
 		frameOutput, err := inv.renderFrameTemplate(frameTemplateName, bw)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		bw = frameOutput
 	}
@@ -59,6 +61,7 @@ func (inv *Inv) HTML(r *http.Request, w http.ResponseWriter, status int, templat
 		frameOutput, err := inv.renderFrameTemplate(frameTemplateName, bw)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		bw = frameOutput
 	}
@@ -87,4 +90,16 @@ func (inv *Inv) renderFrameTemplate(frameTemplateName string, subframeOutput *by
 	}
 
 	return frameOutput, nil
+}
+
+func (inv *Inv) JSON(r *http.Request, w http.ResponseWriter, status int, data any) {
+	bts, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	w.Write(bts)
 }
