@@ -14,15 +14,17 @@ import (
 type Config struct {
 	templateFS fs.FS
 
-	cacheMutex  *sync.RWMutex
-	templateSet *template.Template
-	funcMaps    template.FuncMap
+	cacheMutex     *sync.RWMutex
+	templateSet    *template.Template
+	funcMaps       template.FuncMap
+	frameTemplates []string
 }
 
 func New(tmplFS fs.FS, opts ...ConfigOption) *Config {
 	cfg := &Config{
-		templateFS: tmplFS,
-		cacheMutex: new(sync.RWMutex),
+		templateFS:     tmplFS,
+		cacheMutex:     new(sync.RWMutex),
+		frameTemplates: nil,
 	}
 
 	for _, opt := range opts {
@@ -75,14 +77,14 @@ func (tc *Config) Use(next http.Handler) http.Handler {
 	})
 }
 
-func (tc *Render) NewInv() *Inv {
+func (tc *Config) NewInv() *Inv {
 	return &Inv{
-		render: tc,
+		config: tc,
 		values: make(map[string]interface{}),
 	}
 }
 
-func (tc *Render) template(name string) (*template.Template, error) {
+func (tc *Config) template(name string) (*template.Template, error) {
 	return tc.templateSet.Lookup(name), nil
 }
 
