@@ -11,46 +11,64 @@ import (
 	"sync"
 )
 
-// Render is a template renderer.  It uses the Go HTML template package and designed to be used
-// as middleware for the standard http.Handler.
-type Render struct {
+type Config struct {
 	templateFS fs.FS
 
 	cacheMutex  *sync.RWMutex
 	templateSet *template.Template
+	funcMaps    template.FuncMap
 }
 
-// New creates a new template renderer.  Templates are read from the provided FS.
-func New(tmplFS fs.FS) *Render {
-	cfg := &Render{
+func New(tmplFS fs.FS, opts ...ConfigOption) *Config {
+	cfg := &Config{
 		templateFS: tmplFS,
-
-		cacheMutex:  new(sync.RWMutex),
-		templateSet: template.New("/"),
+		cacheMutex: new(sync.RWMutex),
 	}
 
-	_ = fs.WalkDir(tmplFS, ".", func(path string, d fs.DirEntry, err error) error {
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	cfg.templateSet = cfg.buildTemplates()
+	return cfg
+}
+
+func (tc *Config) rebuildTemplates() {
+	newTemplates := tc.buildTemplates()
+
+	tc.cacheMutex.Lock()
+	defer tc.cacheMutex.Unlock()
+	tc.templateSet = newTemplates
+}
+
+func (tc *Config) buildTemplates() *template.Template {
+	mainTmpl := template.New("/")
+
+	if tc.funcMaps != nil {
+		mainTmpl = tc.templateSet.Funcs(tc.funcMaps)
+	}
+
+	_ = fs.WalkDir(tc.templateFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if !strings.HasSuffix(path, ".html") {
 			return nil
 		}
 
-		tmpl, err := cfg.parseTemplate(path)
+		tmpl, err := tc.parseTemplate(path)
 		if err != nil {
 			log.Printf("template %v: %v", path, err)
 			return nil
 		}
 
-		if _, err := cfg.templateSet.AddParseTree(path, tmpl.Tree); err != nil {
+		if _, err := mainTmpl.AddParseTree(path, tmpl.Tree); err != nil {
 			log.Printf("template %v: %v", path, err)
 		}
 
 		return nil
 	})
-	return cfg
+	return mainTmpl
 }
 
-// Use enables use of the renderer with the passed in handler.
-func (tc *Render) Use(next http.Handler) http.Handler {
+func (tc *Config) Use(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rc := tc.NewInv()
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), renderContextKey, rc)))
@@ -68,7 +86,7 @@ func (tc *Render) template(name string) (*template.Template, error) {
 	return tc.templateSet.Lookup(name), nil
 }
 
-func (tc *Render) parseTemplate(name string) (*template.Template, error) {
+func (tc *Config) parseTemplate(name string) (*template.Template, error) {
 	f, err := tc.templateFS.Open(name)
 	if err != nil {
 		return nil, err
@@ -80,7 +98,12 @@ func (tc *Render) parseTemplate(name string) (*template.Template, error) {
 		return nil, err
 	}
 
-	tmpl, err := template.New(name).Parse(string(tmplBytes))
+	tmpl := template.New(name)
+	if tc.funcMaps != nil {
+		tmpl = tmpl.Funcs(tc.funcMaps)
+	}
+
+	tmpl, err = tmpl.Parse(string(tmplBytes))
 	if err != nil {
 		return nil, err
 	}
