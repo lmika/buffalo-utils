@@ -14,15 +14,17 @@ import (
 type Config struct {
 	templateFS fs.FS
 
-	cacheMutex  *sync.RWMutex
-	templateSet *template.Template
-	funcMaps    template.FuncMap
+	cacheMutex     *sync.RWMutex
+	templateSet    *template.Template
+	funcMaps       template.FuncMap
+	frameTemplates []string
 }
 
 func New(tmplFS fs.FS, opts ...ConfigOption) *Config {
 	cfg := &Config{
-		templateFS: tmplFS,
-		cacheMutex: new(sync.RWMutex),
+		templateFS:     tmplFS,
+		cacheMutex:     new(sync.RWMutex),
+		frameTemplates: nil,
 	}
 
 	for _, opt := range opts {
@@ -45,7 +47,7 @@ func (tc *Config) buildTemplates() *template.Template {
 	mainTmpl := template.New("/")
 
 	if tc.funcMaps != nil {
-		mainTmpl = tc.templateSet.Funcs(tc.funcMaps)
+		mainTmpl = mainTmpl.Funcs(tc.funcMaps)
 	}
 
 	_ = fs.WalkDir(tc.templateFS, ".", func(path string, d fs.DirEntry, err error) error {
@@ -70,12 +72,16 @@ func (tc *Config) buildTemplates() *template.Template {
 
 func (tc *Config) Use(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rc := &renderContext{
-			config: tc,
-			values: make(map[string]interface{}),
-		}
+		rc := tc.NewInv()
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), renderContextKey, rc)))
 	})
+}
+
+func (tc *Config) NewInv() *Inv {
+	return &Inv{
+		config: tc,
+		values: make(map[string]interface{}),
+	}
 }
 
 func (tc *Config) template(name string) (*template.Template, error) {
@@ -105,19 +111,6 @@ func (tc *Config) parseTemplate(name string) (*template.Template, error) {
 	}
 
 	return tmpl, nil
-}
-
-func Set(r *http.Request, name string, value interface{}) {
-	rc, ok := r.Context().Value(renderContextKey).(*renderContext)
-	if !ok {
-		return
-	}
-	rc.values[name] = value
-}
-
-type renderContext struct {
-	config *Config
-	values map[string]interface{}
 }
 
 type renderContextKeyType struct{}
