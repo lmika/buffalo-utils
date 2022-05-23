@@ -3,7 +3,9 @@ package render
 import (
 	"context"
 	"github.com/fsnotify/fsnotify"
+	"io/fs"
 	"log"
+	"path/filepath"
 	"strings"
 )
 
@@ -47,10 +49,26 @@ func RebuildOnChange(ctx context.Context, baseDir string) ConfigOption {
 				}
 			}()
 
-			err = watcher.Add(baseDir)
-			if err != nil {
-				log.Fatal(err)
+			if err := filepath.WalkDir(baseDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				info, err := d.Info()
+				if err != nil {
+					return err
+				}
+
+				if info.IsDir() {
+					if err := watcher.Add(path); err != nil {
+						log.Println(err)
+					}
+				}
+				return nil
+			}); err != nil {
+				log.Println(err)
+				return
 			}
+
 			<-done
 		}()
 	}
