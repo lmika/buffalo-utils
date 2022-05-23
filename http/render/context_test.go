@@ -1,112 +1,117 @@
 package render_test
 
 import (
-	"html/template"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"testing/fstest"
 
-	"github.com/lmika/gopkgs/http/middleware/render"
+	"github.com/lmika/gopkgs/http/render"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWithFunc(t *testing.T) {
-	t.Run("should make available functions to the template", func(t *testing.T) {
+func TestJSON(t *testing.T) {
+	t.Run("should render output as json", func(t *testing.T) {
 		rw := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "https://www.example.com/", nil)
 
 		rnd := render.New(fstest.MapFS{
 			"index.html": &fstest.MapFile{
-				Data: []byte(`Template: {{uppercase .alpha}} - {{lowercase .bravo}}`),
+				Data: []byte(`Template: {{.alpha}} - {{.bravo}}`),
 			},
-		}, render.WithFuncs(template.FuncMap{
-			"uppercase": strings.ToUpper,
-			"lowercase": strings.ToLower,
-		}))
+		})
 
 		inv := rnd.NewInv()
-		inv.Set("alpha", "Hello")
-		inv.Set("bravo", "World")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.JSON(r, rw, http.StatusOK, struct {
+			Alpha string `json:"alpha"`
+			Bravo string `json:"bravo"`
+		}{Alpha: "Hello", Bravo: "World"})
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
-		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
-		assert.Equal(t, `Template: HELLO - world`, rw.Body.String())
+		assert.Equal(t, "application/json; charset=utf-8", rw.Header().Get("Content-type"))
+		assert.JSONEq(t, `{"alpha":"Hello","bravo":"World"}`, rw.Body.String())
 	})
 }
 
-func TestWithFrame(t *testing.T) {
-	t.Run("should render templates in frame if specified", func(t *testing.T) {
+func TestInv_UseFrame(t *testing.T) {
+	t.Run("should add frame to the list of frames which will be used", func(t *testing.T) {
 		rw := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "https://www.example.com/", nil)
 
 		rnd := render.New(fstest.MapFS{
 			"index.html": &fstest.MapFile{
-				Data: []byte(`{{.alpha}} - {{.bravo}}`),
+				Data: []byte(`Template: {{.alpha}} - {{.bravo}}`),
 			},
 			"frame.html": &fstest.MapFile{
 				Data: []byte(`Frame: [{{.Content}}]`),
 			},
-		}, render.WithFrame("frame.html"))
+		})
 
 		inv := rnd.NewInv()
+		inv.UseFrame("frame.html")
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
 		inv.HTML(r, rw, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
-		assert.Equal(t, `Frame: [Hello - World]`, rw.Body.String())
+		assert.Equal(t, `Frame: [Template: Hello - World]`, rw.Body.String())
 	})
 
-	t.Run("should support multiple frames templates in frame if specified", func(t *testing.T) {
+	t.Run("should add to any global frames", func(t *testing.T) {
 		rw := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "https://www.example.com/", nil)
 
 		rnd := render.New(fstest.MapFS{
 			"index.html": &fstest.MapFile{
-				Data: []byte(`{{.alpha}} - {{.bravo}}`),
+				Data: []byte(`Template: {{.alpha}} - {{.bravo}}`),
 			},
 			"frame.html": &fstest.MapFile{
 				Data: []byte(`Frame: [{{.Content}}]`),
 			},
-		}, render.WithFrame("frame.html"), render.WithFrame("frame.html"))
+			"global.html": &fstest.MapFile{
+				Data: []byte(`Global: [{{.Content}}]`),
+			},
+		}, render.WithFrame("global.html"))
 
 		inv := rnd.NewInv()
+		inv.UseFrame("frame.html")
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
 		inv.HTML(r, rw, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
-		assert.Equal(t, `Frame: [Frame: [Hello - World]]`, rw.Body.String())
+		assert.Equal(t, `Global: [Frame: [Template: Hello - World]]`, rw.Body.String())
 	})
+}
 
-	t.Run("should render frames in reverse order", func(t *testing.T) {
+func TestInv_SetFrameArg(t *testing.T) {
+	t.Run("should set the argument on all frames", func(t *testing.T) {
 		rw := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "https://www.example.com/", nil)
 
 		rnd := render.New(fstest.MapFS{
 			"index.html": &fstest.MapFile{
-				Data: []byte(`{{.alpha}} - {{.bravo}}`),
+				Data: []byte(`Template: {{.alpha}} - {{.bravo}}`),
 			},
-			"outer.html": &fstest.MapFile{
-				Data: []byte(`Outer: [{{.Content}}]`),
+			"frame.html": &fstest.MapFile{
+				Data: []byte(`{{.frameName}}: [{{.Content}}]`),
 			},
-			"inner.html": &fstest.MapFile{
-				Data: []byte(`Inner: [{{.Content}}]`),
+			"global.html": &fstest.MapFile{
+				Data: []byte(`{{.frameName}}: [{{.Content}}]`),
 			},
-		}, render.WithFrame("outer.html"), render.WithFrame("inner.html"))
+		}, render.WithFrame("global.html"))
 
 		inv := rnd.NewInv()
+		inv.UseFrame("frame.html")
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
+		inv.SetFrameArg("frameName", "The Frame")
 		inv.HTML(r, rw, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
-		assert.Equal(t, `Outer: [Inner: [Hello - World]]`, rw.Body.String())
+		assert.Equal(t, `The Frame: [The Frame: [Template: Hello - World]]`, rw.Body.String())
 	})
 }

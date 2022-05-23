@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/lmika/gopkgs/http/middleware/render"
+	"github.com/lmika/gopkgs/http/render"
 	"github.com/stretchr/testify/assert"
 )
 
