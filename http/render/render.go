@@ -31,20 +31,20 @@ func SetFrameArg(r *http.Request, name string, value interface{}) {
 	rc.SetFrameArg(name, value)
 }
 
-func HTML(r *http.Request, w http.ResponseWriter, status int, templateName string) {
+func HTML(w http.ResponseWriter, r *http.Request, status int, templateName string) {
 	rc, ok := r.Context().Value(renderContextKey).(*Inv)
 	if !ok {
 		return
 	}
 
-	rc.HTML(r, w, status, templateName)
+	rc.HTML(w, r, status, templateName)
 }
 
-func JSON(r *http.Request, w http.ResponseWriter, status int, data any) {
+func JSON(w http.ResponseWriter, r *http.Request, status int, data any) {
 	rc, ok := r.Context().Value(renderContextKey).(*Inv)
 	if !ok {
 		return
 	}
 
-	rc.JSON(r, w, status, data)
+	rc.JSON(w, r, status, data)
 }

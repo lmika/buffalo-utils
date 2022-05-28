@@ -22,7 +22,7 @@ func TestJSON(t *testing.T) {
 		})
 
 		inv := rnd.NewInv()
-		inv.JSON(r, rw, http.StatusOK, struct {
+		inv.JSON(rw, r, http.StatusOK, struct {
 			Alpha string `json:"alpha"`
 			Bravo string `json:"bravo"`
 		}{Alpha: "Hello", Bravo: "World"})
@@ -51,7 +51,7 @@ func TestInv_UseFrame(t *testing.T) {
 		inv.UseFrame("frame.html")
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
@@ -78,7 +78,7 @@ func TestInv_UseFrame(t *testing.T) {
 		inv.UseFrame("frame.html")
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
@@ -108,7 +108,7 @@ func TestInv_SetFrameArg(t *testing.T) {
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
 		inv.SetFrameArg("frameName", "The Frame")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))

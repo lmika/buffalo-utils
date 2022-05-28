@@ -24,7 +24,7 @@ func TestTemplate(t *testing.T) {
 		inv := rnd.NewInv()
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
@@ -37,7 +37,7 @@ func TestTemplate_Use(t *testing.T) {
 		var handler http.Handler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 			render.Set(r, "alpha", "Hello")
 			render.Set(r, "bravo", "World")
-			render.HTML(r, rw, http.StatusOK, "index.html")
+			render.HTML(rw, r, http.StatusOK, "index.html")
 		})
 
 		rw := httptest.NewRecorder()

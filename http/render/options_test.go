@@ -29,7 +29,7 @@ func TestWithFunc(t *testing.T) {
 		inv := rnd.NewInv()
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
@@ -54,7 +54,7 @@ func TestWithFrame(t *testing.T) {
 		inv := rnd.NewInv()
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
@@ -77,7 +77,7 @@ func TestWithFrame(t *testing.T) {
 		inv := rnd.NewInv()
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
@@ -103,7 +103,7 @@ func TestWithFrame(t *testing.T) {
 		inv := rnd.NewInv()
 		inv.Set("alpha", "Hello")
 		inv.Set("bravo", "World")
-		inv.HTML(r, rw, http.StatusOK, "index.html")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
 
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))

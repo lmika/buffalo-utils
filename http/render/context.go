@@ -30,7 +30,7 @@ func (inv *Inv) UseFrame(name string) {
 	inv.extraFrames = append(inv.extraFrames, name)
 }
 
-func (inv *Inv) HTML(r *http.Request, w http.ResponseWriter, status int, templateName string) {
+func (inv *Inv) HTML(w http.ResponseWriter, r *http.Request, status int, templateName string) {
 	// Render the content template
 	tmpl, err := inv.config.template(templateName)
 	if err != nil {
@@ -92,7 +92,7 @@ func (inv *Inv) renderFrameTemplate(frameTemplateName string, subframeOutput *by
 	return frameOutput, nil
 }
 
-func (inv *Inv) JSON(r *http.Request, w http.ResponseWriter, status int, data any) {
+func (inv *Inv) JSON(w http.ResponseWriter, r *http.Request, status int, data any) {
 	bts, err := json.Marshal(data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
