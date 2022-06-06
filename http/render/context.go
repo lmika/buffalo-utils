@@ -3,6 +3,7 @@ package render
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"html/template"
 	"net/http"
 )
@@ -101,5 +102,18 @@ func (inv *Inv) JSON(w http.ResponseWriter, r *http.Request, status int, data an
 
 	w.Header().Set("Content-type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
+	w.Write(bts)
+}
+
+func (inv *Inv) XML(w http.ResponseWriter, r *http.Request, status int, data any) {
+	bts, err := xml.Marshal(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-type", "application/xml; charset=utf-8")
+	w.WriteHeader(status)
+	w.Write([]byte(xml.Header))
 	w.Write(bts)
 }

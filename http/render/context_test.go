@@ -1,6 +1,7 @@
 package render_test
 
 import (
+	"encoding/xml"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,6 +31,30 @@ func TestJSON(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
 		assert.Equal(t, "application/json; charset=utf-8", rw.Header().Get("Content-type"))
 		assert.JSONEq(t, `{"alpha":"Hello","bravo":"World"}`, rw.Body.String())
+	})
+}
+
+func TestXML(t *testing.T) {
+	t.Run("should render output as xml", func(t *testing.T) {
+		rw := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "https://www.example.com/", nil)
+
+		rnd := render.New(fstest.MapFS{
+			"index.html": &fstest.MapFile{
+				Data: []byte(`Template: {{.alpha}} - {{.bravo}}`),
+			},
+		})
+
+		inv := rnd.NewInv()
+		inv.XML(rw, r, http.StatusOK, struct {
+			XMLName xml.Name `xml:"stuff"`
+			Alpha   string   `xml:"alpha"`
+			Bravo   string   `xml:"bravo"`
+		}{Alpha: "Hello", Bravo: "World"})
+
+		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
+		assert.Equal(t, "application/xml; charset=utf-8", rw.Header().Get("Content-type"))
+		assert.Equal(t, `<?xml version="1.0" encoding="UTF-8"?>`+"\n"+`<stuff><alpha>Hello</alpha><bravo>World</bravo></stuff>`, rw.Body.String())
 	})
 }
 
