@@ -48,3 +48,12 @@ func JSON(w http.ResponseWriter, r *http.Request, status int, data any) {
 
 	rc.JSON(w, r, status, data)
 }
+
+func XML(w http.ResponseWriter, r *http.Request, status int, data any) {
+	rc, ok := r.Context().Value(renderContextKey).(*Inv)
+	if !ok {
+		return
+	}
+
+	rc.XML(w, r, status, data)
+}
