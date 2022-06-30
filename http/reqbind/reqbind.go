@@ -71,6 +71,20 @@ func bindStruct(sct reflect.Value, values url.Values, prefix string) error {
 		}
 		fullFormName := prefix + formName
 
+		// Check if the type is bindable to any intefaces
+		if isBindableToIface(field) {
+			if !values.Has(fullFormName) {
+				continue
+			}
+
+			// Use the last form value for scalar types.  This is to deal with the stupid checkbox hack
+			lastValue := values[fullFormName][len(values[fullFormName])-1]
+			if err := setIface(field, lastValue); err != nil {
+				return err
+			}
+			continue
+		}
+
 		var err error
 		switch field.Type().Kind() {
 		case reflect.Struct:
@@ -93,6 +107,29 @@ func bindStruct(sct reflect.Value, values url.Values, prefix string) error {
 	return nil
 }
 
+func isBindableToIface(field reflect.Value) bool {
+	if field.Type().AssignableTo(textUnmarshalerType) || field.Addr().Type().AssignableTo(textUnmarshalerType) {
+		return true
+	}
+
+	return false
+}
+
+// Interfaces that support text unmarshalling
+func setIface(field reflect.Value, formValue string) error {
+	if field.Type().AssignableTo(textUnmarshalerType) {
+		ut := field.Interface().(encoding.TextUnmarshaler)
+		_ = ut.UnmarshalText([]byte(formValue))
+		return nil
+	} else if fieldPtr := field.Addr(); fieldPtr.Type().AssignableTo(textUnmarshalerType) {
+		ut := fieldPtr.Interface().(encoding.TextUnmarshaler)
+		_ = ut.UnmarshalText([]byte(formValue))
+		return nil
+	}
+
+	return errors.New("expected field to be bindable to interface but was not")
+}
+
 func setScalar(field reflect.Value, formValue string) error {
 	// Primitives
 	switch field.Type().Kind() {
@@ -110,17 +147,6 @@ func setScalar(field reflect.Value, formValue string) error {
 		case "0", "f", "F", "false", "FALSE", "False", "off", "OFF":
 			field.SetBool(false)
 		}
-		return nil
-	}
-
-	// Interfaces that support text unmarshalling
-	if field.Type().AssignableTo(textUnmarshalerType) {
-		ut := field.Interface().(encoding.TextUnmarshaler)
-		_ = ut.UnmarshalText([]byte(formValue))
-		return nil
-	} else if fieldPtr := field.Addr(); fieldPtr.Type().AssignableTo(textUnmarshalerType) {
-		ut := fieldPtr.Interface().(encoding.TextUnmarshaler)
-		_ = ut.UnmarshalText([]byte(formValue))
 		return nil
 	}
 

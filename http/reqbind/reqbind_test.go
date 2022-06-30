@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lmika/gopkgs/http/reqbind"
 	"github.com/stretchr/testify/assert"
@@ -77,18 +78,27 @@ func TestBind(t *testing.T) {
 		assert.Equal(t, -456, s.Bar)
 	})
 
-	/*
-		t.Run("should bind to TextUnmarshaler", func(t *testing.T) {
-			req := httptest.NewRequest("GET", "https://www.example.com/?id=e559c6f0-ae06-4fc4-9d08-10a5994a8d11", nil)
-			s := struct {
-				ID uuid.UUID `req:"id"`
-			}{}
+	t.Run("should bind to TextUnmarshaler for simple types", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "https://www.example.com/?do=absolutely", nil)
+		s := struct {
+			Do simpleBool `req:"do"`
+		}{}
 
-			err := reqbind.Bind(&s, req)
-			assert.NoError(t, err, nil)
-			assert.Equal(t, uuid.MustParse("e559c6f0-ae06-4fc4-9d08-10a5994a8d11"), s.ID)
-		})
-	*/
+		err := reqbind.Bind(&s, req)
+		assert.NoError(t, err, nil)
+		assert.Equal(t, simpleBool(true), s.Do)
+	})
+
+	t.Run("should bind to TextUnmarshaler for structs", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "https://www.example.com/?theTime=D2022-06-30T10:40:00", nil)
+		s := struct {
+			Time wrappedTime `req:"theTime"`
+		}{}
+
+		err := reqbind.Bind(&s, req)
+		assert.NoError(t, err, nil)
+		assert.Equal(t, "2022-06-30 10:40:00", time.Time(s.Time).Format("2006-01-02 15:04:05"))
+	})
 
 	t.Run("should bind to bools", func(t *testing.T) {
 		scenarios := []struct {
@@ -144,6 +154,7 @@ func TestBind(t *testing.T) {
 		formParams.Set("rules.category", "favourites")
 		formParams.Set("action.active", "on")
 		formParams.Set("action.remarks", "This is the remarks")
+		formParams.Set("action.time", "D2022-06-30T10:40:00")
 
 		req := httptest.NewRequest("POST", "https://www.example.com/", strings.NewReader(formParams.Encode()))
 		req.Header.Set("Content-type", "application/x-www-form-urlencoded")
@@ -154,8 +165,9 @@ func TestBind(t *testing.T) {
 				Category string `req:"category"`
 			} `req:"rules"`
 			Action struct {
-				Active  bool   `req:"active"`
-				Remarks string `req:"remarks"`
+				Active  bool        `req:"active"`
+				Remarks string      `req:"remarks"`
+				Time    wrappedTime `req:"time"`
 			} `req:"action"`
 		}{}
 
@@ -165,5 +177,24 @@ func TestBind(t *testing.T) {
 		assert.Equal(t, "favourites", s.Rules.Category)
 		assert.Equal(t, true, s.Action.Active)
 		assert.Equal(t, "This is the remarks", s.Action.Remarks)
+		assert.Equal(t, "2022-06-30 10:40:00", time.Time(s.Action.Time).Format("2006-01-02 15:04:05"))
 	})
+}
+
+type simpleBool bool
+
+func (b *simpleBool) UnmarshalText(bs []byte) error {
+	*b = string(bs) == "absolutely"
+	return nil
+}
+
+type wrappedTime time.Time
+
+func (t *wrappedTime) UnmarshalText(b []byte) error {
+	wt, err := time.Parse("D2006-01-02T15:04:05", string(b))
+	if err != nil {
+		return err
+	}
+	*t = wrappedTime(wt)
+	return nil
 }
