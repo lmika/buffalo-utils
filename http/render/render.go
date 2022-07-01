@@ -22,6 +22,15 @@ func UseFrame(r *http.Request, name string) {
 	rc.UseFrame(name)
 }
 
+func SetFrame(r *http.Request, name string) {
+	rc, ok := r.Context().Value(renderContextKey).(*Inv)
+	if !ok {
+		return
+	}
+
+	rc.SetFrame(name)
+}
+
 func SetFrameArg(r *http.Request, name string, value interface{}) {
 	rc, ok := r.Context().Value(renderContextKey).(*Inv)
 	if !ok {

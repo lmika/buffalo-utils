@@ -111,6 +111,66 @@ func TestInv_UseFrame(t *testing.T) {
 	})
 }
 
+func TestInv_SetFrame(t *testing.T) {
+	t.Run("should replace frame list with frame to use", func(t *testing.T) {
+		rw := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "https://www.example.com/", nil)
+
+		rnd := render.New(fstest.MapFS{
+			"index.html": &fstest.MapFile{
+				Data: []byte(`Template: {{.alpha}} - {{.bravo}}`),
+			},
+			"frame.html": &fstest.MapFile{
+				Data: []byte(`Frame: [{{.Content}}]`),
+			},
+			"altframe.html": &fstest.MapFile{
+				Data: []byte(`ALT Frame: [{{.Content}}]`),
+			},
+		})
+
+		inv := rnd.NewInv()
+		inv.UseFrame("frame.html")
+		inv.SetFrame("altframe.html")
+		inv.Set("alpha", "Hello")
+		inv.Set("bravo", "World")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
+
+		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
+		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
+		assert.Equal(t, `ALT Frame: [Template: Hello - World]`, rw.Body.String())
+	})
+
+	t.Run("should replace any global frames", func(t *testing.T) {
+		rw := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "https://www.example.com/", nil)
+
+		rnd := render.New(fstest.MapFS{
+			"index.html": &fstest.MapFile{
+				Data: []byte(`Template: {{.alpha}} - {{.bravo}}`),
+			},
+			"frame.html": &fstest.MapFile{
+				Data: []byte(`Frame: [{{.Content}}]`),
+			},
+			"global.html": &fstest.MapFile{
+				Data: []byte(`Global: [{{.Content}}]`),
+			},
+			"altframe.html": &fstest.MapFile{
+				Data: []byte(`ALT Frame: [{{.Content}}]`),
+			},
+		}, render.WithFrame("global.html"))
+
+		inv := rnd.NewInv()
+		inv.SetFrame("altframe.html")
+		inv.Set("alpha", "Hello")
+		inv.Set("bravo", "World")
+		inv.HTML(rw, r, http.StatusOK, "index.html")
+
+		assert.Equal(t, http.StatusOK, rw.Result().StatusCode)
+		assert.Equal(t, "text/html; charset=utf-8", rw.Header().Get("Content-type"))
+		assert.Equal(t, `ALT Frame: [Template: Hello - World]`, rw.Body.String())
+	})
+}
+
 func TestInv_SetFrameArg(t *testing.T) {
 	t.Run("should set the argument on all frames", func(t *testing.T) {
 		rw := httptest.NewRecorder()

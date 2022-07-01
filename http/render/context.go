@@ -9,10 +9,11 @@ import (
 )
 
 type Inv struct {
-	config      *Config
-	extraFrames []string
-	values      map[string]any
-	frameArgs   map[string]any
+	config            *Config
+	extraFrames       []string
+	ignoreGlobalFrame bool
+	values            map[string]any
+	frameArgs         map[string]any
 }
 
 func (inv *Inv) Set(name string, value any) {
@@ -29,6 +30,12 @@ func (inv *Inv) SetFrameArg(name string, value any) {
 // UseFrame adds the use of the frame to the pending frame stack.
 func (inv *Inv) UseFrame(name string) {
 	inv.extraFrames = append(inv.extraFrames, name)
+}
+
+// SetFrame will replace any pending frame with the given name.
+func (inv *Inv) SetFrame(name string) {
+	inv.ignoreGlobalFrame = true
+	inv.extraFrames = []string{name}
 }
 
 func (inv *Inv) HTML(w http.ResponseWriter, r *http.Request, status int, templateName string) {
@@ -57,14 +64,16 @@ func (inv *Inv) HTML(w http.ResponseWriter, r *http.Request, status int, templat
 	}
 
 	// Render any global frame templates
-	for i := len(inv.config.frameTemplates) - 1; i >= 0; i-- {
-		frameTemplateName := inv.config.frameTemplates[i]
-		frameOutput, err := inv.renderFrameTemplate(frameTemplateName, bw)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+	if !inv.ignoreGlobalFrame {
+		for i := len(inv.config.frameTemplates) - 1; i >= 0; i-- {
+			frameTemplateName := inv.config.frameTemplates[i]
+			frameOutput, err := inv.renderFrameTemplate(frameTemplateName, bw)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			bw = frameOutput
 		}
-		bw = frameOutput
 	}
 
 	w.Header().Set("Content-type", "text/html; charset=utf-8")
