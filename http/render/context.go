@@ -44,6 +44,9 @@ func (inv *Inv) HTML(w http.ResponseWriter, r *http.Request, status int, templat
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	} else if tmpl == nil {
+		http.Error(w, "template missing: "+templateName, http.StatusInternalServerError)
+		return
 	}
 
 	bw := new(bytes.Buffer)
