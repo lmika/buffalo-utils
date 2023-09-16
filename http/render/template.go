@@ -7,8 +7,14 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"strings"
+	"path/filepath"
 	"sync"
+
+	"github.com/lmika/gopkgs/fp/slices"
+)
+
+var (
+	templateSuffix = []string{".html", ".gohtml"}
 )
 
 type Config struct {
@@ -51,7 +57,7 @@ func (tc *Config) buildTemplates() *template.Template {
 	}
 
 	_ = fs.WalkDir(tc.templateFS, ".", func(path string, d fs.DirEntry, err error) error {
-		if !strings.HasSuffix(path, ".html") {
+		if !slices.Contains(templateSuffix, filepath.Ext(path)) {
 			return nil
 		}
 
