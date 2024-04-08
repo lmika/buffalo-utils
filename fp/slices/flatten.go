@@ -1,6 +1,6 @@
 package slices
 
-func Flattern[T any](tss [][]T) []T {
+func Flatten[T any](tss [][]T) []T {
 	if len(tss) == 0 {
 		return nil
 	}
