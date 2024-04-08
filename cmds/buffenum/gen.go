@@ -124,17 +124,17 @@ func (cg *codeGen) generateUnmarshalTextMethod(f *jen.File, enum *Enum) {
 }
 
 func (cg *codeGen) generateMarshalTextMethod(f *jen.File, enum *Enum) {
-	receiver := jen.Id("e")
+	receiver := jen.Id("e").Add(cg.typeName)
 	textRet := jen.Id("text")
 	errRet := jen.Id("err")
 
 	// MarshalText() (text []byte, err error)
 
-	f.Func().Params(receiver.Add(cg.typeName)).Id("MarshalText").Params().Params(
+	f.Func().Params(receiver).Id("MarshalText").Params().Params(
 		textRet.Index().Byte(),
 		errRet.Error(),
 	).BlockFunc(func(g *jen.Group) {
-		g.Switch(receiver).BlockFunc(func(g *jen.Group) {
+		g.Switch(jen.Id("e")).BlockFunc(func(g *jen.Group) {
 			for _, e := range enum.Items {
 				g.Case(jen.Id(cg.enumItemName(e, enum))).Block(
 					jen.Return(jen.Index().Byte().Params(jen.Lit(e.StringValue)), jen.Nil()),
