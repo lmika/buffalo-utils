@@ -8,10 +8,10 @@ func Values[K comparable, V any](m map[K]V) []V {
 	return vs
 }
 
-func MapValues[K comparable, V any, W any](m map[K]V, fn func(v V) W) map[K]W {
+func MapValues[K comparable, V any, W any](m map[K]V, fn func(v V, k K) W) map[K]W {
 	ws := make(map[K]W)
 	for k, v := range m {
-		ws[k] = fn(v)
+		ws[k] = fn(v, k)
 	}
 	return ws
 }
