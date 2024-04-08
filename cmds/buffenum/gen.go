@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/dave/jennifer/jen"
 	"io"
+
+	"github.com/dave/jennifer/jen"
 )
 
 type codeGen struct {
@@ -50,6 +51,7 @@ func (cg *codeGen) generateEnum(f *jen.File, enum *Enum) {
 
 	cg.generateStringMethod(f, enum)
 	cg.generateScanMethod(f, enum)
+	cg.generateMarshalTextMethod(f, enum)
 	cg.generateUnmarshalTextMethod(f, enum)
 	cg.generateSelectValueMethod(f, enum)
 	cg.generateSelectLabelMethod(f, enum)
@@ -88,7 +90,7 @@ func (cg *codeGen) generateScanMethod(f *jen.File, enum *Enum) {
 	})
 }
 
-func (cg *codeGen) generateUnmarshalTextMethod(f *jen.File ,enum *Enum) {
+func (cg *codeGen) generateUnmarshalTextMethod(f *jen.File, enum *Enum) {
 	receiver := jen.Id("e").Op("*").Add(cg.typeName)
 	textParam := jen.Id("text")
 
@@ -118,6 +120,32 @@ func (cg *codeGen) generateUnmarshalTextMethod(f *jen.File ,enum *Enum) {
 				jen.Lit(fmt.Sprintf("invalid value for %v", enum.Name))),
 			)
 		}
+	})
+}
+
+func (cg *codeGen) generateMarshalTextMethod(f *jen.File, enum *Enum) {
+	receiver := jen.Id("e")
+	textRet := jen.Id("text")
+	errRet := jen.Id("err")
+
+	// MarshalText() (text []byte, err error)
+
+	f.Func().Params(receiver.Add(cg.typeName)).Id("MarshalText").Params().Params(
+		textRet.Index().Byte(),
+		errRet.Error(),
+	).BlockFunc(func(g *jen.Group) {
+		g.Switch(receiver).BlockFunc(func(g *jen.Group) {
+			for _, e := range enum.Items {
+				g.Case(jen.Id(cg.enumItemName(e, enum))).Block(
+					jen.Return(jen.Index().Byte().Params(jen.Lit(e.StringValue)), jen.Nil()),
+				)
+			}
+		})
+
+		// Unknown values
+		g.Return(jen.Nil(), jen.Qual("errors", "New").Params(
+			jen.Lit(fmt.Sprintf("invalid value for %v", enum.Name))),
+		)
 	})
 }
 
